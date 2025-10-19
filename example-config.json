@@ -1,0 +1,6 @@
+{
+  "serverUrl": "http://localhost:3000",
+  "apiKey": "api-key",
+  "excludedPeople": ["PersonYouDislike"],
+  "excludedTags": ["UnimportantForMemory"]
+}
