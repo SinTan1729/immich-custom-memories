@@ -54,7 +54,7 @@ func main() {
 	date := date{now.Year(), now.Month(), now.Day()}
 	client := &http.Client{}
 	allImages := make(map[int][]searchResult)
-	for year := now.Year(); year >= config.EarliestYear; year-- {
+	for year := now.Year() - 1; year >= config.EarliestYear; year-- {
 		fmt.Println("Processing year:", year)
 		date.year = year
 		yearImages, err := getYearImages(client, &config, &date)
