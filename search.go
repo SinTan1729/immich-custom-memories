@@ -94,6 +94,9 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 }
 
 func filterPeople(items *[]searchResult, config *config) []searchResult {
+	if len(config.ExcludedPeople) == 0 {
+		return *items
+	}
 	var filteredItems []searchResult
 	for _, item := range *items {
 		includeItem := true
@@ -113,6 +116,9 @@ func filterPeople(items *[]searchResult, config *config) []searchResult {
 }
 
 func filterTags(client *http.Client, items *[]searchResult, config *config) ([]searchResult, error) {
+	if len(config.ExcludedTags) == 0 {
+		return *items, nil
+	}
 	var filteredItems []searchResult
 	for _, item := range *items {
 		req, err := http.NewRequest("GET", config.ServerUrl+"/api/assets/"+item.id, nil)
