@@ -5,8 +5,8 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -22,17 +22,25 @@ type searchResult struct {
 	path        string
 	peopleIDs   []string
 	peopleNames []string
-	tags        []string
+}
+
+type searchParams struct {
+	Type        string `json:"type"`
+	TakenAfter  string `json:"takenAfter"`
+	TakenBefore string `json:"takenBefore"`
+	WithPeople  bool   `json:"withPeople"`
 }
 
 func getYearImages(client *http.Client, config *config, date *date) ([]searchResult, error) {
 	earliestZone, _ := time.LoadLocation("Etc/GMT-14")
 	lastZone, _ := time.LoadLocation("Etc/GMT+12")
-	takenAfter := time.Date(date.year, date.month, date.day, 0, 0, 0, 0, earliestZone)
-	takenBefore := time.Date(date.year, date.month, date.day, 11, 59, 59, 999999999, lastZone)
-	jsonData := fmt.Sprintf(`{"type":"IMAGE","takenAfter":"%s","takenBefore":"%s","withPeople":true}`,
-		takenAfter.Format(time.RFC3339), takenBefore.Format(time.RFC3339))
-	req, err := http.NewRequest("POST", config.ServerUrl+"/api/search/metadata", bytes.NewBufferString(jsonData))
+	data := searchParams{
+		Type:        "IMAGE",
+		TakenAfter:  time.Date(date.year, date.month, date.day, 0, 0, 0, 0, earliestZone).Format(time.RFC3339),
+		TakenBefore: time.Date(date.year, date.month, date.day, 11, 59, 59, 999999999, lastZone).Format(time.RFC3339),
+		WithPeople:  true}
+	jsonData, _ := json.Marshal(data)
+	req, err := http.NewRequest("POST", config.ServerUrl+"/api/search/metadata", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
 	}
@@ -60,13 +68,14 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 	items := parsedJson.Path("assets.items").Children()
 	parsedItems := make([]searchResult, len(items))
 	for i, item := range items {
-		var parsedItem searchResult
-		parsedItem.id = strings.Trim(item.Path("id").String(), `"`)
-		parsedItem.path = strings.Trim(item.Path("originalPath").String(), `"`)
-		parsedItem.localTime, _ = time.Parse(time.RFC3339, strings.Trim(item.Path("localDateTime").String(), `"`))
+		localTime, _ := time.Parse(time.RFC3339, strings.Trim(item.Path("localDateTime").String(), `"`))
 		people := item.Path("people").Children()
-		parsedItem.peopleIDs = make([]string, len(people))
-		parsedItem.peopleNames = make([]string, len(people))
+		parsedItem := searchResult{
+			id:          strings.Trim(item.Path("id").String(), `"`),
+			path:        strings.Trim(item.Path("originalPath").String(), `"`),
+			localTime:   localTime,
+			peopleIDs:   make([]string, len(people)),
+			peopleNames: make([]string, len(people))}
 		for j, person := range people {
 			parsedItem.peopleIDs[j] = strings.Trim(person.Path("id").String(), `"`)
 			parsedItem.peopleNames[j] = strings.Trim(person.Path("name").String(), `"`)

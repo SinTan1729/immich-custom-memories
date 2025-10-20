@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,17 @@ import (
 
 	"github.com/Jeffail/gabs/v2"
 )
+
+type memoryEntry struct {
+	AssetIDs []string        `json:"assetIds"`
+	Data     memoryEntryData `json:"data"`
+	MemoryAt string          `json:"memoryAt"`
+	Type     string          `json:"type"`
+}
+
+type memoryEntryData struct {
+	Year int `json:"year"`
+}
 
 func cleanUpMemories(client *http.Client, config *config) error {
 	fmt.Println("Cleaning up older memories.")
@@ -69,16 +81,19 @@ func generateMemories(client *http.Client, allImages *map[int][]searchResult, co
 
 	fmt.Println("Adding new memories.")
 	for year, images := range *allImages {
-		jsonData := `{"assetIds":[`
-		for _, image := range images {
-			jsonData += `"` + image.id + `",`
+		assets := make([]string, len(images))
+		for i, image := range images {
+			assets[i] = image.id
 		}
-		jsonData = jsonData[:len(jsonData)-1]
-		jsonData += fmt.Sprintf(`],"data":{"year":%d},"memoryAt":"`, year)
-		memoryTime := time.Date(year, date.month, date.day, 0, 0, 0, 0, time.UTC)
-		jsonData += memoryTime.Format(time.RFC3339) + `","type":"on_this_day"}`
+		data := memoryEntry{
+			AssetIDs: assets,
+			Data:     memoryEntryData{Year: year},
+			MemoryAt: time.Date(year, date.month, date.day, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			Type:     "on_this_day",
+		}
+		jsonData, _ := json.Marshal(data)
 
-		req, err := http.NewRequest("POST", config.ServerUrl+"/api/memories", bytes.NewBufferString(jsonData))
+		req, err := http.NewRequest("POST", config.ServerUrl+"/api/memories", bytes.NewBuffer(jsonData))
 		if err != nil {
 			return err
 		}
