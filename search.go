@@ -23,9 +23,13 @@ type searchResult struct {
 	peopleNames []string
 }
 
-func getAllImages(client *http.Client, config *config) ([]searchResult, error) {
-	takenAfter := time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC)
-	jsonData := fmt.Sprintf(`{"type":"IMAGE","takenAfter":"%s","withPeople":true}`, takenAfter.Format(time.RFC3339))
+func getYearImages(client *http.Client, config *config, date *date) ([]searchResult, error) {
+	earliestZone, _ := time.LoadLocation("Etc/GMT-14")
+	lastZone, _ := time.LoadLocation("Etc/GMT+12")
+	takenAfter := time.Date(date.year, date.month, date.day, 0, 0, 0, 0, earliestZone)
+	takenBefore := time.Date(date.year, date.month, date.day, 11, 59, 59, 999999999, lastZone)
+	jsonData := fmt.Sprintf(`{"type":"IMAGE","takenAfter":"%s","withPeople":true,"takenBefore":"%s"}`,
+		takenAfter.Format(time.RFC3339), takenBefore.Format(time.RFC3339))
 	req, err := http.NewRequest("POST", config.ServerUrl+"/api/search/metadata", bytes.NewBufferString(jsonData))
 	if err != nil {
 		return nil, err
@@ -65,7 +69,14 @@ func getAllImages(client *http.Client, config *config) ([]searchResult, error) {
 		parsedItems[i] = parsedItem
 	}
 
-	return parsedItems, nil
+	var filteredItems []searchResult
+	for _, item := range parsedItems {
+		if item.localTime.Day() == date.day {
+			filteredItems = append(filteredItems, item)
+		}
+	}
+
+	return filteredItems, nil
 }
 
 func filterPeople(items *[]searchResult, config *config) []searchResult {
