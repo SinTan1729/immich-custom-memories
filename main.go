@@ -5,10 +5,12 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -32,7 +34,16 @@ func main() {
 	fmt.Println("Immich Custom Memories Album")
 	fmt.Println("https://github.com/SinTan1729/immich-custom-memories-album")
 	fmt.Println("----------")
-	configFile, err := os.ReadFile("./config.json")
+
+	var configPath string
+	flag.StringVar(&configPath, "config", "./config.json", "Path for the config file.")
+	flag.Parse()
+	configPath = strings.TrimSpace(configPath)
+	if configPath == "" {
+		configPath = "./config.json"
+	}
+
+	configFile, err := os.ReadFile(configPath)
 	if err != nil {
 		log.Fatal("Error when opening file: ", err)
 	}
