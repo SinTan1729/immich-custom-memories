@@ -18,7 +18,6 @@ type config struct {
 	ExcludedPeople []string `json:"excludedPeople"`
 	ExcludedTags   []string `json:"excludedTags"`
 	EarliestYear   int      `json:"earliestYear"`
-	CleanupDaily   bool     `json:"cleanupDaily"`
 }
 
 type date struct {

@@ -62,11 +62,9 @@ func cleanUpMemories(client *http.Client, config *config) error {
 }
 
 func generateMemories(client *http.Client, allImages *map[int][]searchResult, config *config, date *date) error {
-	if config.CleanupDaily {
-		err := cleanUpMemories(client, config)
-		if err != nil {
-			return err
-		}
+	err := cleanUpMemories(client, config)
+	if err != nil {
+		return err
 	}
 
 	fmt.Println("Adding new memories.")
