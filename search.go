@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,7 @@ type searchResult struct {
 	path        string
 	peopleIDs   []string
 	peopleNames []string
+	tags        []string
 }
 
 func getYearImages(client *http.Client, config *config, date *date) ([]searchResult, error) {
@@ -28,7 +30,7 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 	lastZone, _ := time.LoadLocation("Etc/GMT+12")
 	takenAfter := time.Date(date.year, date.month, date.day, 0, 0, 0, 0, earliestZone)
 	takenBefore := time.Date(date.year, date.month, date.day, 11, 59, 59, 999999999, lastZone)
-	jsonData := fmt.Sprintf(`{"type":"IMAGE","takenAfter":"%s","withPeople":true,"takenBefore":"%s"}`,
+	jsonData := fmt.Sprintf(`{"type":"IMAGE","takenAfter":"%s","takenBefore":"%s","withPeople":true}`,
 		takenAfter.Format(time.RFC3339), takenBefore.Format(time.RFC3339))
 	req, err := http.NewRequest("POST", config.ServerUrl+"/api/search/metadata", bytes.NewBufferString(jsonData))
 	if err != nil {
@@ -40,6 +42,9 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, errors.New("Error fetching images: " + resp.Status)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -105,12 +110,14 @@ func filterTags(client *http.Client, items *[]searchResult, config *config) ([]s
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-API-Key", config.APIKey)
 
 		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
+		}
+		if resp.StatusCode != 200 {
+			return nil, errors.New("Error fetching image info: " + item.id + " : " + resp.Status)
 		}
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {

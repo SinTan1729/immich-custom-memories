@@ -3,5 +3,6 @@
   "apiKey": "api-key",
   "excludedPeople": ["PersonYouDislike"],
   "excludedTags": ["UnimportantForMemory"],
-  "earliestYear": 2010
+  "earliestYear": 2010,
+  "cleanupDaily": true
 }

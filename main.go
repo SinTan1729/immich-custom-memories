@@ -18,6 +18,7 @@ type config struct {
 	ExcludedPeople []string `json:"excludedPeople"`
 	ExcludedTags   []string `json:"excludedTags"`
 	EarliestYear   int      `json:"earliestYear"`
+	CleanupDaily   bool     `json:"cleanupDaily"`
 }
 
 type date struct {
@@ -53,7 +54,7 @@ func main() {
 
 	date := date{now.Year(), now.Month(), now.Day()}
 	client := &http.Client{}
-	var allImages []searchResult
+	allImages := make(map[int][]searchResult)
 	for year := now.Year(); year >= config.EarliestYear; year-- {
 		fmt.Println("Processing year:", year)
 		date.year = year
@@ -69,7 +70,13 @@ func main() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		allImages = append(allImages, yearImages...)
+		if len(images) > 0 {
+			allImages[year] = images
+		}
 	}
-	fmt.Printf("Total %d images across all years..\n", len(allImages))
+
+	err = generateMemories(client, &allImages, &config, &date)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
