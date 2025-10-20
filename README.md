@@ -1,3 +1,3 @@
-# Immich Custom Memories Album
+# Immich Custom Memories
 
 Todo.
