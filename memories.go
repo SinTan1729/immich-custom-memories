@@ -52,7 +52,6 @@ func cleanUpMemories(client *http.Client, config *config) error {
 	}
 	for _, memory := range jsonData.Children() {
 		id := strings.Trim(memory.Path("id").String(), `"`)
-		fmt.Println(memory.StringIndent(" ", " "))
 
 		req, err := http.NewRequest("DELETE", config.ServerUrl+"/api/memories/"+id, nil)
 		if err != nil {

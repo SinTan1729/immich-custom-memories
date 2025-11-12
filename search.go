@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"slices"
 	"strings"
@@ -164,4 +165,30 @@ func filterTags(client *http.Client, items *[]searchResult, config *config) ([]s
 		}
 	}
 	return filteredItems, nil
+}
+
+func chooseRandomImages(items *[]searchResult, n int) []searchResult {
+	if n <= 0 {
+		return nil
+	}
+	imgLen := len(*items)
+	if n >= imgLen {
+		return *items
+	}
+
+	choices := make([]int, 0)
+	for len(choices) < n {
+		choice := rand.IntN(imgLen)
+		if !slices.Contains(choices, choice) {
+			choices = append(choices, choice)
+		}
+	}
+	slices.Sort(choices)
+
+	out := make([]searchResult, n)
+	for i, choice := range choices {
+		out[i] = (*items)[choice]
+	}
+
+	return out
 }

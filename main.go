@@ -20,6 +20,7 @@ type config struct {
 	ExcludedPeople []string `json:"excludedPeople"`
 	ExcludedTags   []string `json:"excludedTags"`
 	EarliestYear   int      `json:"earliestYear"`
+	MaxMemorySize  int      `json:"maxMemorySize"`
 }
 
 type date struct {
@@ -57,6 +58,9 @@ func main() {
 	if config.EarliestYear == 0 {
 		config.EarliestYear = 2010
 	}
+	if config.MaxMemorySize == 0 {
+		config.MaxMemorySize = 10
+	}
 	configPrint, _ := json.MarshalIndent(&config, " ", " ")
 	fmt.Println("Starting processing memories at", now.Format(time.RFC850))
 	fmt.Println("Using config:\n", string(configPrint))
@@ -77,6 +81,10 @@ func main() {
 		fmt.Printf("  After filtering by people, %d images remaining.\n", len(images))
 		images, err = filterTags(client, &images, &config)
 		fmt.Printf("  After filtering by tags, %d images remaining.\n", len(images))
+		if len(images) > config.MaxMemorySize {
+			fmt.Printf("  Choosing %d images randomly for the memory.\n", config.MaxMemorySize)
+			images = chooseRandomImages(&images, config.MaxMemorySize)
+		}
 		if err != nil {
 			log.Fatalln(err)
 		}
