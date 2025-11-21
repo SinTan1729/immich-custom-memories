@@ -3,6 +3,6 @@
   "apiKey": "api-key",
   "excludedPeople": ["PersonYouDislike"],
   "excludedTags": ["UnimportantForMemory"],
-  "earliestYear": 2010,
+  "noOfYears": 10,
   "maxMemorySize": 10
 }

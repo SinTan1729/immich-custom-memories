@@ -19,7 +19,7 @@ type config struct {
 	APIKey         string   `json:"apiKey"`
 	ExcludedPeople []string `json:"excludedPeople"`
 	ExcludedTags   []string `json:"excludedTags"`
-	EarliestYear   int      `json:"earliestYear"`
+	NoOfYears      int      `json:"noOfYears"`
 	MaxMemorySize  int      `json:"maxMemorySize"`
 }
 
@@ -55,8 +55,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Error reading config: ", err)
 	}
-	if config.EarliestYear == 0 {
-		config.EarliestYear = 2010
+	if config.NoOfYears == 0 {
+		config.NoOfYears = 10
 	}
 	if config.MaxMemorySize == 0 {
 		config.MaxMemorySize = 10
@@ -69,7 +69,8 @@ func main() {
 	date := date{now.Year(), now.Month(), now.Day()}
 	client := &http.Client{}
 	allImages := make(map[int][]searchResult)
-	for year := now.Year() - 1; year >= config.EarliestYear; year-- {
+	curYear := now.Year()
+	for year := curYear - 1; year >= curYear-config.NoOfYears; year-- {
 		fmt.Println("Processing year:", year)
 		date.year = year
 		yearImages, err := getYearImages(client, &config, &date)
