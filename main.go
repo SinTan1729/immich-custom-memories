@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -37,11 +38,15 @@ func main() {
 	fmt.Println("----------")
 
 	var configPath string
-	flag.StringVar(&configPath, "config", "./config.json", "Path for the config file.")
+	flag.StringVar(&configPath, "config", "", "Path for the config file.")
 	flag.Parse()
 	configPath = strings.TrimSpace(configPath)
 	if configPath == "" {
-		configPath = "./config.json"
+		configDir, err := os.UserConfigDir()
+		if err != nil {
+			log.Fatal("Error getting the config directory: ", err)
+		}
+		configPath = filepath.Join(configDir, "/immich-custom-memories/config.json")
 	}
 
 	configFile, err := os.ReadFile(configPath)
