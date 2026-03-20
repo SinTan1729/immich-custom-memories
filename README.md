@@ -21,7 +21,18 @@ lure install immich-custom-memories
 
 ```
 
-One can set up a memory generation job through cron or a systemd service. I use the following cronjob.
+One can also simple clone the repo and run `make install`. (Run `make uninstall` to uninstall.)
+
+```sh
+git clone https://github.com/SinTan1729/immich-custom-memories
+cd immich-custom-memories
+make install
+
+```
+
+# Post-install
+
+It is advised to set up a memory generation job through cron or a systemd service. I use the following cronjob.
 
 ```cron
 0 0 * * *       /usr/bin/immich-custom-memories
