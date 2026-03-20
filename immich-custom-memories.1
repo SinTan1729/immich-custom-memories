@@ -1,0 +1,20 @@
+.\" Manpage for immich-custom-memories.
+.\" Contact sayantan[dot]santra689[at]gmail[dot]com to correct errors or typos.
+.TH man 1 "March 2026" "immich-custom-memories"
+.SH NAME
+immich-custom-memories
+.SH CONFIG
+There should be a config file named config.json in the $XDG_CONFIG_HOME/immich-custom-memories/ directory.
+It's recommended that you use a local/internal URI for better performance. Here's a sample config file.
+
+{
+  "serverUrl": "http://localhost:3000",
+  "apiKey": "api-key",
+  "excludedPeople": ["PersonYouDislike"],
+  "excludedTags": ["UnimportantForMemory"],
+  "noOfYears": 10,
+  "maxMemorySize": 10
+.br
+}
+.SH AUTHOR
+Sayantan Santra sayantan[dot]santra689[at]gmail[dot]com

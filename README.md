@@ -48,7 +48,7 @@ Nightly Task Settings -> Generate Memories -> Toggle off).
 Configuration is read from `$XDG_CONFIG_HOME/immich-custom-memories/config.json`. An example config is provided in
 [`example-config.json`](./example-config.json).
 
-One can also pass a config file using `--config <file-name>`.
+One can also pass a config file using `--config <file-name>`. It's recommended that you use a local/internal URI for better performance.
 
 # Notes
 
