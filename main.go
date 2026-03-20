@@ -94,6 +94,7 @@ func main() {
 		}
 	}
 
+	date.year = curYear
 	err = generateMemories(client, &allImages, &config, &date)
 	if err != nil {
 		log.Fatalln(err)
