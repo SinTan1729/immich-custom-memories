@@ -1,8 +1,8 @@
 # Immich Custom Memories
 
-This tool allows one to generate memories in [Immich](https://immich-app/immich) while filtering out certain faces, and tags.
-I don't believe in deleting past images due to current feelings. (I've done it in the past, only regret it later.) But I don't
-want them shoved in face through memories either. This tool aims to strike that balance.
+This tool allows one to generate memories in [Immich](https://github.com/immich-app/immich) while filtering out certain faces, and
+tags. I don't believe in deleting past images due to current feelings. (I've done it in the past, only regret it later.) But I
+don't want them shoved in face through memories either. This tool aims to strike that balance.
 
 # Installation
 
