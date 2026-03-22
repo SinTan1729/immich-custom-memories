@@ -1,56 +1,58 @@
 # Immich Custom Memories
 
-This tool allows one to generate memories in [Immich](https://github.com/immich-app/immich) while filtering out certain faces, and
-tags. I don't believe in deleting past images due to current feelings. (I've done it in the past, only regret it later.) But I
-don't want them shoved in face through memories either. This tool aims to strike that balance.
+This tool lets you generate memories in [Immich](https://github.com/immich-app/immich) while filtering out certain faces and tags. I don’t
+like deleting old photos just because of how I feel at a certain moment. I’ve done that before, only to regretted it later. But I also don’t
+want those photos constantly showing up in memories. This tool is meant to strike a balance.
 
 # Installation
 
-One can install it through AUR on Arch-based distros.
+You can install it through AUR on Arch-based distros:
 
 ```sh
 paru -S immich-custom-memories-bin
-
 ```
 
-One can install it through [LURE](https://lure.sh) on pretty much any distro.
+Or through [LURE](https://lure.sh) on most distros:
 
 ```sh
 lure addrepo -n SinTan1729 -u https://github.com/SinTan1729/lure-repo
 lure install immich-custom-memories
-
 ```
 
-One can also simple clone the repo and run `make install`. (Run `make uninstall` to uninstall.)
+You can also just clone the repo and run `make install`. (Use `make uninstall` to remove it.)
 
 ```sh
 git clone https://github.com/SinTan1729/immich-custom-memories
 cd immich-custom-memories
 make install
-
 ```
 
 # Post-install
 
-It is advised to set up a memory generation job through cron or a systemd service. I use the following cronjob.
+It’s recommended to set up a memory generation job using cron or a systemd service. For example, here’s the cron job I use:
 
 ```cron
 0 0 * * *       /usr/bin/immich-custom-memories
-
 ```
 
-Make sure that the user has access to the config file. Also, make sure to enable the memories feature for the corresponding user
-in Immich (Account Settings -> Features -> Time-based memories -> Enable), and disable the memory generation task (Administration ->
-Nightly Task Settings -> Generate Memories -> Toggle off).
+Make sure the user has access to the config file. Also ensure the memories feature is enabled for the user in Immich (Account Settings →
+Features → Time-based memories → Enable), and disable Immich’s built-in memory generation task (Administration → Nightly Task Settings →
+Generate Memories → Toggle off).
 
 # Configuration
 
-Configuration is read from `$XDG_CONFIG_HOME/immich-custom-memories/config.json`. An example config is provided in
+Configuration is read from `$XDG_CONFIG_HOME/immich-custom-memories/config.json`. An example config is available in
 [`example-config.json`](./example-config.json).
 
-One can also pass a config file using `--config <file-name>`. It's recommended that you use a local/internal URI for better performance.
+You can also pass a config file using `--config <file-name>`. Using a local/internal URI is recommended for better performance.
+
+Make sure that the API key used has at least the following permissions.
+
+```
+[ memory.create, memory.read, memory.delete, asset.read ]
+```
 
 # Notes
 
-- Immich v2.6.0 or higher is needed since we need immich-app/immich#26429 for the memories to properly appear on the timeline.
-- Excluded people entry in the config supports both names and IDs of people.
+- Requires Immich v2.6.0 or higher, since it depends on immich-app/immich#26429 for memories to show up properly in the timeline.
+- The `excludedPeople` field in the config supports both names and IDs.
