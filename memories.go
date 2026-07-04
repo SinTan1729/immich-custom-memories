@@ -80,7 +80,7 @@ func generateMemories(client *http.Client, allImages *map[int][]searchResult, co
 		return err
 	}
 
-	fmt.Println("Adding new memories.")
+	fmt.Println("----------\nAdding new memories.")
 	for year, images := range *allImages {
 		assets := make([]string, len(images))
 		for i, image := range images {
@@ -113,7 +113,11 @@ func generateMemories(client *http.Client, allImages *map[int][]searchResult, co
 			defer resp.Body.Close()
 			return errors.New("Error creating memories: " + strconv.Itoa(year) + " : " + resp.Status)
 		}
-		fmt.Println("  Created memory for year", year, "with", len(images), "entries.")
+		if len(images) == 1 {
+			fmt.Printf("  Created memory for year %d with 1 entry.\n", year)
+		} else {
+			fmt.Printf("  Created memory for year %d with %d entries.\n", year, len(images))
+		}
 	}
 
 	return nil
