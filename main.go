@@ -11,9 +11,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
+
+var Version = "unknown"
 
 type config struct {
 	ServerUrl      string   `json:"serverUrl"`
@@ -31,6 +34,11 @@ type date struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && slices.Contains([]string{"--version", "-V"}, os.Args[1]) {
+		fmt.Println(Version)
+		return
+	}
+
 	now := time.Now()
 
 	fmt.Println("Immich Custom Memories Album")

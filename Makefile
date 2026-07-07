@@ -1,8 +1,9 @@
 PREFIX := /usr/local
 PKGNAME := immich-custom-memories
+GIT_VERSION := $(shell git tag --list | tail -1)
 
 build:
-	go build -ldflags="-s -w" -o ${PKGNAME}
+	go build -ldflags="-s -w -X 'main.Version=${GIT_VERSION}'" -o ${PKGNAME}
 
 install: build
 	install -Dm755 $(PKGNAME) "$(DESTDIR)$(PREFIX)/bin/$(PKGNAME)"
