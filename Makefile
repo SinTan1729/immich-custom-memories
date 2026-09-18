@@ -1,6 +1,6 @@
 PREFIX := /usr/local
 PKGNAME := immich-custom-memories
-GIT_VERSION := $(shell git tag --list | tail -1)
+GIT_VERSION := $(shell git describe --tags --abbrev=0)
 
 build:
 	go build -ldflags="-s -w -X 'main.Version=${GIT_VERSION}'" -o ${PKGNAME}
