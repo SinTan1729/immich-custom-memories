@@ -82,6 +82,8 @@ func main() {
 	date := date{now.Year(), now.Month(), now.Day()}
 	client := &http.Client{}
 	allImages := make(map[int][]searchResult)
+	totalMemories := 0
+
 	curYear := now.Year()
 	for year := curYear - 1; year >= curYear-config.NoOfYears; year-- {
 		fmt.Println("Processing year:", year)
@@ -104,6 +106,7 @@ func main() {
 		}
 		if len(images) > 0 {
 			allImages[year] = images
+			totalMemories += 1
 		}
 	}
 
@@ -112,4 +115,5 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	fmt.Printf("Total created memories: %d\n", totalMemories)
 }
