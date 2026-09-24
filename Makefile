@@ -15,9 +15,14 @@ uninstall:
 
 aur: build 
 	tar --transform 's/.*\///g' -czf $(PKGNAME).tar.gz $(PKGNAME) $(PKGNAME).1
-
+ 
 clean:
 	rm -f "${PKGNAME}"
 	rm -f "${PKGNAME}.tar.gz"
 
-.PHONY: build install uninstall aur clean
+GH_TOKEN := $(shell cat ~/.config/github_token)
+release: aur
+	gh release create "${GIT_VERSION}" --notes "$$(git-cliff --latest --github-token ${GH_TOKEN})" "$(PKGNAME).tar.gz"
+	$(MAKE) clean
+
+.PHONY: build install uninstall aur clean release
