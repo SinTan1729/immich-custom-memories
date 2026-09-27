@@ -64,8 +64,7 @@ func main() {
 
 	// Now let's unmarshall the data into `payload`
 	var config config
-	err = json.Unmarshal(configFile, &config)
-	if err != nil {
+	if err = json.Unmarshal(configFile, &config); err != nil {
 		log.Fatal("Error reading config: ", err)
 	}
 	if config.NoOfYears == 0 {
@@ -99,7 +98,7 @@ func main() {
 		fmt.Printf("  After filtering by tags, %d images remaining.\n", len(images))
 		if len(images) > config.MaxMemorySize {
 			fmt.Printf("  Choosing %d images randomly for the memory.\n", config.MaxMemorySize)
-			images = chooseRandomImages(&images, config.MaxMemorySize)
+			images = chooseImages(&images, config.MaxMemorySize)
 		}
 		if err != nil {
 			log.Fatalln(err)
@@ -111,8 +110,7 @@ func main() {
 	}
 
 	date.year = curYear
-	err = generateMemories(client, &allImages, &config, &date)
-	if err != nil {
+	if err = generateMemories(client, &allImages, &config, &date); err != nil {
 		log.Fatalln(err)
 	}
 	fmt.Printf("Total created memories: %d\n", totalMemories)

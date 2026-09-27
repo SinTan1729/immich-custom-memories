@@ -5,11 +5,11 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand/v2"
 	"net/http"
 	"slices"
 	"strings"
@@ -23,10 +23,7 @@ type searchResult struct {
 	localDateTime time.Time
 	peopleIDs     []string
 	peopleNames   []string
-	visibility    string
-	hasMetadata   bool
 	isFavorite    bool
-	isOffline     bool
 }
 
 type searchParams struct {
@@ -89,21 +86,22 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 	items := parsedJson.Path("assets.items").Children()
 	parsedItems := make([]searchResult, len(items))
 	for i, item := range items {
+		id := strings.Trim(item.Path("id").String(), `"`)
+		isVisible := strings.Trim(item.Path("visibility").String(), `"`) == "timeline"
+		hasMetadata := item.Path("hasMetadata").String() == "true"
+		isOffline := item.Path("isOffline").String() == "true"
+		if !hasMetadata || isOffline || !isVisible {
+			fmt.Println("Skipping bad item:", id)
+			continue
+		}
 		localDateTime, _ := time.Parse(time.RFC3339, strings.Trim(item.Path("localDateTime").String(), `"`))
 		people := item.Path("people").Children()
 		parsedItem := searchResult{
-			id:            strings.Trim(item.Path("id").String(), `"`),
+			id:            id,
 			localDateTime: localDateTime,
 			peopleIDs:     make([]string, len(people)),
 			peopleNames:   make([]string, len(people)),
-			visibility:    strings.Trim(item.Path("visibility").String(), `"`),
-			hasMetadata:   item.Path("hasMetadata").String() == "true",
 			isFavorite:    item.Path("isFavorite").String() == "true",
-			isOffline:     item.Path("isOffline").String() == "true",
-		}
-		if !parsedItem.hasMetadata || parsedItem.isOffline || parsedItem.visibility != "timeline" {
-			fmt.Println("Skipping bad item:", parsedItem.id)
-			continue
 		}
 
 		for j, person := range people {
@@ -196,28 +194,22 @@ func filterTags(client *http.Client, items *[]searchResult, config *config) ([]s
 	return filteredItems, nil
 }
 
-func chooseRandomImages(items *[]searchResult, n int) []searchResult {
+func chooseImages(items *[]searchResult, n int) []searchResult {
 	if n <= 0 {
 		return nil
 	}
-	imgLen := len(*items)
-	if n >= imgLen {
-		return *items
-	}
 
-	choices := make([]int, 0)
-	for len(choices) < n {
-		choice := rand.IntN(imgLen)
-		if !slices.Contains(choices, choice) {
-			choices = append(choices, choice)
+	// Prefer favorites and items with more faces
+	slices.SortFunc(*items, func(a, b searchResult) int {
+		if a.isFavorite != b.isFavorite {
+			if a.isFavorite {
+				return -1
+			}
+			return 1
 		}
-	}
-	slices.Sort(choices)
+		return cmp.Compare(len(b.peopleIDs), len(a.peopleIDs))
+	})
 
-	out := make([]searchResult, n)
-	for i, choice := range choices {
-		out[i] = (*items)[choice]
-	}
-
-	return out
+	n = min(n, len(*items))
+	return (*items)[:n]
 }
