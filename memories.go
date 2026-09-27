@@ -80,6 +80,9 @@ func generateMemories(client *http.Client, allImages *map[int][]searchResult, co
 		return err
 	}
 
+	showAt := time.Date(date.year, date.month, date.day, 0, 0, 0, 0, time.UTC).Format(time.RFC3339)
+	hideAt := time.Date(date.year, date.month, date.day, 23, 59, 59, 999999999, time.UTC).Format(time.RFC3339Nano)
+
 	fmt.Println("----------\nAdding new memories.")
 	for year, images := range *allImages {
 		assets := make([]string, len(images))
@@ -90,8 +93,8 @@ func generateMemories(client *http.Client, allImages *map[int][]searchResult, co
 			AssetIDs: assets,
 			Data:     memoryEntryData{Year: year},
 			MemoryAt: time.Date(year, date.month, date.day, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
-			ShowAt:   time.Date(date.year, date.month, date.day, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
-			HideAt:   time.Date(date.year, date.month, date.day, 23, 59, 59, 999999999, time.UTC).Format(time.RFC3339Nano),
+			ShowAt:   showAt,
+			HideAt:   hideAt,
 			Type:     "on_this_day",
 		}
 		jsonData, _ := json.Marshal(data)
