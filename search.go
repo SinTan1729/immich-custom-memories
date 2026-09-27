@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -18,28 +19,47 @@ import (
 )
 
 type searchResult struct {
-	id          string
-	localTime   time.Time
-	path        string
-	peopleIDs   []string
-	peopleNames []string
+	id            string
+	localDateTime time.Time
+	peopleIDs     []string
+	peopleNames   []string
+	visibility    string
+	hasMetadata   bool
+	isFavorite    bool
+	isOffline     bool
 }
 
 type searchParams struct {
-	Type        string `json:"type"`
-	TakenAfter  string `json:"takenAfter"`
-	TakenBefore string `json:"takenBefore"`
-	WithPeople  bool   `json:"withPeople"`
+	Filter     filter `json:"filter"`
+	WithPeople bool   `json:"withPeople"`
+	WithExif   bool   `json:"withExif"`
+}
+type filter struct {
+	Type    typeFilter `json:"type"`
+	TakenAt dateFilter `json:"takenAt"`
+}
+type typeFilter struct {
+	Eq string `json:"eq"`
+}
+type dateFilter struct {
+	After  time.Time `json:"gte"`
+	Before time.Time `json:"lt"`
 }
 
 func getYearImages(client *http.Client, config *config, date *date) ([]searchResult, error) {
 	earliestZone, _ := time.LoadLocation("Etc/GMT-14")
 	lastZone, _ := time.LoadLocation("Etc/GMT+12")
 	data := searchParams{
-		Type:        "IMAGE",
-		TakenAfter:  time.Date(date.year, date.month, date.day, 0, 0, 0, 0, earliestZone).Format(time.RFC3339),
-		TakenBefore: time.Date(date.year, date.month, date.day, 11, 59, 59, 999999999, lastZone).Format(time.RFC3339),
-		WithPeople:  true}
+		Filter: filter{
+			Type: typeFilter{Eq: "IMAGE"},
+			TakenAt: dateFilter{
+				After:  time.Date(date.year, date.month, date.day, 0, 0, 0, 0, earliestZone),
+				Before: time.Date(date.year, date.month, date.day, 11, 59, 59, 999999999, lastZone),
+			},
+		},
+		WithPeople: true,
+		WithExif:   true,
+	}
 	jsonData, _ := json.Marshal(data)
 	req, err := http.NewRequest("POST", config.ServerUrl+"/api/search/metadata", bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -69,14 +89,23 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 	items := parsedJson.Path("assets.items").Children()
 	parsedItems := make([]searchResult, len(items))
 	for i, item := range items {
-		localTime, _ := time.Parse(time.RFC3339, strings.Trim(item.Path("localDateTime").String(), `"`))
+		localDateTime, _ := time.Parse(time.RFC3339, strings.Trim(item.Path("localDateTime").String(), `"`))
 		people := item.Path("people").Children()
 		parsedItem := searchResult{
-			id:          strings.Trim(item.Path("id").String(), `"`),
-			path:        strings.Trim(item.Path("originalPath").String(), `"`),
-			localTime:   localTime,
-			peopleIDs:   make([]string, len(people)),
-			peopleNames: make([]string, len(people))}
+			id:            strings.Trim(item.Path("id").String(), `"`),
+			localDateTime: localDateTime,
+			peopleIDs:     make([]string, len(people)),
+			peopleNames:   make([]string, len(people)),
+			visibility:    strings.Trim(item.Path("visibility").String(), `"`),
+			hasMetadata:   item.Path("hasMetadata").String() == "true",
+			isFavorite:    item.Path("isFavorite").String() == "true",
+			isOffline:     item.Path("isOffline").String() == "true",
+		}
+		if !parsedItem.hasMetadata || parsedItem.isOffline || parsedItem.visibility != "timeline" {
+			fmt.Println("Skipping bad item:", parsedItem.id)
+			continue
+		}
+
 		for j, person := range people {
 			parsedItem.peopleIDs[j] = strings.Trim(person.Path("id").String(), `"`)
 			parsedItem.peopleNames[j] = strings.Trim(person.Path("name").String(), `"`)
@@ -86,7 +115,7 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 
 	var filteredItems []searchResult
 	for _, item := range parsedItems {
-		if item.localTime.Day() == date.day {
+		if item.localDateTime.Day() == date.day {
 			filteredItems = append(filteredItems, item)
 		}
 	}
