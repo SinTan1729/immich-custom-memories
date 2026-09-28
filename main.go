@@ -18,21 +18,6 @@ import (
 
 var Version = "unknown"
 
-type config struct {
-	ServerUrl      string   `json:"serverUrl"`
-	APIKey         string   `json:"apiKey"`
-	ExcludedPeople []string `json:"excludedPeople"`
-	ExcludedTags   []string `json:"excludedTags"`
-	NoOfYears      int      `json:"noOfYears"`
-	MaxMemorySize  int      `json:"maxMemorySize"`
-}
-
-type date struct {
-	year  int
-	month time.Month
-	day   int
-}
-
 func main() {
 	if len(os.Args) > 1 && slices.Contains([]string{"--version", "-V"}, os.Args[1]) {
 		fmt.Println(Version)

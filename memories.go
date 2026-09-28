@@ -12,23 +12,6 @@ import (
 	"time"
 )
 
-type memoryEntry struct {
-	AssetIDs []string        `json:"assetIds"`
-	Data     memoryEntryData `json:"data"`
-	MemoryAt string          `json:"memoryAt"`
-	ShowAt   string          `json:"showAt"`
-	HideAt   string          `json:"hideAt"`
-	Type     string          `json:"type"`
-}
-
-type memoryEntryData struct {
-	Year int `json:"year"`
-}
-
-type memory struct {
-	Id string `json:"id"`
-}
-
 func cleanUpMemories(client *http.Client, config *config) error {
 	fmt.Println("Cleaning up older memories.")
 	req, err := http.NewRequest("GET", config.ServerUrl+"/api/memories/", nil)
