@@ -13,16 +13,22 @@ uninstall:
 	rm -f "$(DESTDIR)$(PREFIX)/bin/$(PKGNAME)"
 	rm -f "$(DESTDIR)$(PREFIX)/man/man1/$(PKGNAME).1"
 
-aur: build 
-	tar --transform 's/.*\///g' -czf $(PKGNAME).tar.gz $(PKGNAME) $(PKGNAME).1
+build-all:
+	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X 'main.Version=$(GIT_VERSION)'" -o $(PKGNAME)-amd64
+	GOOS=linux GOARCH=arm64 go build -ldflags="-s -w -X 'main.Version=$(GIT_VERSION)'" -o $(PKGNAME)-arm64
+
+aur: build-all
+	tar --transform 's/.*\///g' -czf $(PKGNAME).tar.gz $(PKGNAME)-amd64 $(PKGNAME)-arm64 $(PKGNAME).1
  
 clean:
-	rm -f "${PKGNAME}"
-	rm -f "${PKGNAME}.tar.gz"
+	rm -f "$(PKGNAME)"
+	rm -f "$(PKGNAME)-amd64"
+	rm -f "$(PKGNAME)-arm64"
+	rm -f "$(PKGNAME).tar.gz"
 
 GH_TOKEN := $(shell cat ~/.config/github_token)
 release: aur
-	gh release create "${GIT_VERSION}" --notes "$$(git-cliff --latest --github-token ${GH_TOKEN})" "$(PKGNAME).tar.gz"
+	gh release create "$(GIT_VERSION)" --notes "$$(git-cliff --latest --github-token $(GH_TOKEN))" "$(PKGNAME).tar.gz"
 	$(MAKE) clean
 
-.PHONY: build install uninstall aur clean release
+.PHONY: build build-all install uninstall aur clean release
