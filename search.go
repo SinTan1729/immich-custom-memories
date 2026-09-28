@@ -10,20 +10,28 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
-
-	"github.com/Jeffail/gabs/v2"
 )
 
 type searchResult struct {
-	id            string
-	localDateTime time.Time
-	peopleIDs     []string
+	Id            string    `json:"id"`
+	LocalDateTime time.Time `json:"localDateTime"`
+	People        []person  `json:"people"`
+	peopleIDs     []string  `json:""`
 	peopleNames   []string
-	isFavorite    bool
+	HasMetadata   bool   `json:"hasMetadata"`
+	IsFavorite    bool   `json:"isFavorite"`
+	IsOffline     bool   `json:"isOffline"`
+	Visibility    string `json:"visibility"`
+}
+type person struct {
+	Id         string `json:"id"`
+	Name       string `json:"name"`
+	IsFavorite bool   `json:"isFavorite"`
 }
 
 type searchParams struct {
@@ -41,6 +49,27 @@ type typeFilter struct {
 type dateFilter struct {
 	After  time.Time `json:"gte"`
 	Before time.Time `json:"lt"`
+}
+
+type searchResponse struct {
+	Assets struct {
+		Items []searchResult `json:"items"`
+	} `json:"assets"`
+}
+
+type tagResponse struct {
+	Tags []tag `json:"tags"`
+}
+type tag struct {
+	Value string `json:"value"`
+}
+
+type rankedResult struct {
+	item      searchResult
+	favorite  bool
+	favPeople int
+	people    int
+	random    uint64
 }
 
 func getYearImages(client *http.Client, config *config, date *date) ([]searchResult, error) {
@@ -78,42 +107,30 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 	}
 	defer resp.Body.Close()
 
-	parsedJson, err := gabs.ParseJSON(body)
+	var res searchResponse
+	err = json.Unmarshal(body, &res)
 	if err != nil {
 		return nil, err
 	}
 
-	items := parsedJson.Path("assets.items").Children()
-	parsedItems := make([]searchResult, len(items))
-	for i, item := range items {
-		id := strings.Trim(item.Path("id").String(), `"`)
-		isVisible := strings.Trim(item.Path("visibility").String(), `"`) == "timeline"
-		hasMetadata := item.Path("hasMetadata").String() == "true"
-		isOffline := item.Path("isOffline").String() == "true"
-		if !hasMetadata || isOffline || !isVisible {
-			fmt.Println("Skipping bad item:", id)
+	validItems := make([]searchResult, len(res.Assets.Items))
+	for i, item := range res.Assets.Items {
+		isVisible := item.Visibility == "timeline"
+		if !item.HasMetadata || item.IsOffline || !isVisible {
+			fmt.Println("Skipping bad item:", item.Id)
 			continue
 		}
-		localDateTime, _ := time.Parse(time.RFC3339, strings.Trim(item.Path("localDateTime").String(), `"`))
-		people := item.Path("people").Children()
-		parsedItem := searchResult{
-			id:            id,
-			localDateTime: localDateTime,
-			peopleIDs:     make([]string, len(people)),
-			peopleNames:   make([]string, len(people)),
-			isFavorite:    item.Path("isFavorite").String() == "true",
-		}
 
-		for j, person := range people {
-			parsedItem.peopleIDs[j] = strings.Trim(person.Path("id").String(), `"`)
-			parsedItem.peopleNames[j] = strings.Trim(person.Path("name").String(), `"`)
+		for _, person := range item.People {
+			item.peopleIDs = append(item.peopleIDs, person.Id)
+			item.peopleNames = append(item.peopleIDs, person.Name)
 		}
-		parsedItems[i] = parsedItem
+		validItems[i] = item
 	}
 
 	var filteredItems []searchResult
-	for _, item := range parsedItems {
-		if item.localDateTime.Day() == date.day {
+	for _, item := range validItems {
+		if item.LocalDateTime.Day() == date.day {
 			filteredItems = append(filteredItems, item)
 		}
 	}
@@ -149,7 +166,7 @@ func filterTags(client *http.Client, items *[]searchResult, config *config) ([]s
 	}
 	var filteredItems []searchResult
 	for _, item := range *items {
-		req, err := http.NewRequest("GET", config.ServerUrl+"/api/assets/"+item.id, nil)
+		req, err := http.NewRequest("GET", config.ServerUrl+"/api/assets/"+item.Id, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -160,7 +177,7 @@ func filterTags(client *http.Client, items *[]searchResult, config *config) ([]s
 			return nil, err
 		}
 		if resp.StatusCode != 200 {
-			return nil, errors.New("Error fetching image info: " + item.id + " : " + resp.Status)
+			return nil, errors.New("Error fetching image info: " + item.Id + " : " + resp.Status)
 		}
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -169,17 +186,17 @@ func filterTags(client *http.Client, items *[]searchResult, config *config) ([]s
 		defer resp.Body.Close()
 
 		includeItem := true
-		parsedJSON, err := gabs.ParseJSON(body)
+		var res tagResponse
+		err = json.Unmarshal(body, &res)
 		if err != nil {
 			return nil, err
 		}
-		for _, tag := range parsedJSON.Path("tags").Children() {
-			tagValue := strings.Trim(tag.Path("value").String(), `"`)
+		for _, tag := range res.Tags {
 			filterFunc := func(excludedTag string) bool {
-				return tagValue == excludedTag ||
-					strings.HasSuffix(tagValue, "/"+excludedTag) ||
-					strings.HasPrefix(tagValue, excludedTag+"/") ||
-					strings.Contains(tagValue, "/"+excludedTag+"/")
+				return tag.Value == excludedTag ||
+					strings.HasSuffix(tag.Value, "/"+excludedTag) ||
+					strings.HasPrefix(tag.Value, excludedTag+"/") ||
+					strings.Contains(tag.Value, "/"+excludedTag+"/")
 			}
 			if slices.ContainsFunc(config.ExcludedTags, filterFunc) {
 				includeItem = false
@@ -199,17 +216,48 @@ func chooseImages(items *[]searchResult, n int) []searchResult {
 		return nil
 	}
 
-	// Prefer favorites and items with more faces
-	slices.SortFunc(*items, func(a, b searchResult) int {
-		if a.isFavorite != b.isFavorite {
-			if a.isFavorite {
-				return -1
+	ranked := make([]rankedResult, len(*items))
+	for i, item := range *items {
+		favPeople := 0
+		for _, p := range item.People {
+			if p.IsFavorite {
+				favPeople++
 			}
-			return 1
 		}
-		return cmp.Compare(len(b.peopleIDs), len(a.peopleIDs))
+
+		ranked[i] = rankedResult{
+			item:      item,
+			favorite:  item.IsFavorite,
+			favPeople: favPeople,
+			people:    len(item.peopleIDs),
+			random:    rand.Uint64(),
+		}
+	}
+
+	cmpBool := func(a, b bool) int {
+		if a == b {
+			return 0
+		}
+		if a {
+			return -1
+		}
+		return 1
+	}
+	// Favorite images first, then with more favorite people,
+	// then with more people, then randomly break ties
+	slices.SortFunc(ranked, func(a, b rankedResult) int {
+		return cmp.Or(
+			cmpBool(a.favorite, b.favorite),
+			cmp.Compare(b.favPeople, a.favPeople),
+			cmp.Compare(b.people, a.people),
+			cmp.Compare(a.random, b.random),
+		)
 	})
 
-	n = min(n, len(*items))
-	return (*items)[:n]
+	n = min(n, len(ranked))
+	result := make([]searchResult, n)
+	for i := range n {
+		result[i] = ranked[i].item
+	}
+	return result
 }

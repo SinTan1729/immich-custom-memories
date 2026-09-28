@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/Jeffail/gabs/v2"
 )
 
 type memoryEntry struct {
@@ -25,6 +23,10 @@ type memoryEntry struct {
 
 type memoryEntryData struct {
 	Year int `json:"year"`
+}
+
+type memory struct {
+	Id string `json:"id"`
 }
 
 func cleanUpMemories(client *http.Client, config *config) error {
@@ -48,12 +50,13 @@ func cleanUpMemories(client *http.Client, config *config) error {
 	}
 	defer resp.Body.Close()
 
-	jsonData, err := gabs.ParseJSON(body)
+	var memories []memory
+	err = json.Unmarshal(body, &memories)
 	if err != nil {
 		return err
 	}
-	for _, memory := range jsonData.Children() {
-		id := strings.Trim(memory.Path("id").String(), `"`)
+	for _, memory := range memories {
+		id := strings.Trim(memory.Id, `"`)
 
 		req, err := http.NewRequest("DELETE", config.ServerUrl+"/api/memories/"+id, nil)
 		if err != nil {
@@ -70,7 +73,7 @@ func cleanUpMemories(client *http.Client, config *config) error {
 		}
 	}
 
-	fmt.Println(" ", len(jsonData.Children()), "memories cleaned up.")
+	fmt.Println(" ", len(memories), "memories cleaned up.")
 	return nil
 }
 
@@ -87,7 +90,7 @@ func generateMemories(client *http.Client, allImages *map[int][]searchResult, co
 	for year, images := range *allImages {
 		assets := make([]string, len(images))
 		for i, image := range images {
-			assets[i] = image.id
+			assets[i] = image.Id
 		}
 		data := memoryEntry{
 			AssetIDs: assets,
