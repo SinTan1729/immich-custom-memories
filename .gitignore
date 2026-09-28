@@ -2,4 +2,5 @@ config.json
 immich-custom-memories
 immich-custom-memories-arm64
 immich-custom-memories-amd64
-immich-custom-memories.tar.gz
+immich-custom-memories-arm64-linux.tar.gz
+immich-custom-memories-amd64-linux.tar.gz
