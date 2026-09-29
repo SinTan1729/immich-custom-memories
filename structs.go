@@ -49,9 +49,10 @@ type searchResult struct {
 	People        []person  `json:"people"`
 	peopleIDs     []string  `json:""`
 	peopleNames   []string
-	HasMetadata   bool   `json:"hasMetadata"`
-	IsFavorite    bool   `json:"isFavorite"`
-	IsOffline     bool   `json:"isOffline"`
+	HasMetadata   bool `json:"hasMetadata"`
+	IsFavorite    bool `json:"isFavorite"`
+	IsOffline     bool `json:"isOffline"`
+	HasTags       bool
 	Visibility    string `json:"visibility"`
 }
 type person struct {
@@ -91,9 +92,10 @@ type tag struct {
 }
 
 type rankedResult struct {
-	item      searchResult
-	favorite  bool
-	favPeople int
-	people    int
-	random    uint64
+	item         searchResult
+	isFavorite   bool
+	numFavPeople int
+	numPeople    int
+	hasTags      bool
+	random       uint64
 }

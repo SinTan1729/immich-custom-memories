@@ -136,6 +136,8 @@ func filterTags(client *http.Client, items *[]searchResult, config *config) ([]s
 		if err != nil {
 			return nil, err
 		}
+		item.HasTags = len(res.Tags) > 0
+
 		for _, tag := range res.Tags {
 			filterFunc := func(excludedTag string) bool {
 				return tag.Value == excludedTag ||
@@ -171,11 +173,12 @@ func chooseImages(items *[]searchResult, n int) []searchResult {
 		}
 
 		ranked[i] = rankedResult{
-			item:      item,
-			favorite:  item.IsFavorite,
-			favPeople: favPeople,
-			people:    len(item.peopleIDs),
-			random:    rand.Uint64(),
+			item:         item,
+			isFavorite:   item.IsFavorite,
+			numFavPeople: favPeople,
+			numPeople:    len(item.peopleIDs),
+			hasTags:      item.HasTags,
+			random:       rand.Uint64(),
 		}
 	}
 
@@ -189,12 +192,13 @@ func chooseImages(items *[]searchResult, n int) []searchResult {
 		return 1
 	}
 	// Favorite images first, then with more favorite people,
-	// then with more people, then randomly break ties
+	// then with more people, then with tags, then randomly break ties
 	slices.SortFunc(ranked, func(a, b rankedResult) int {
 		return cmp.Or(
-			cmpBool(a.favorite, b.favorite),
-			cmp.Compare(b.favPeople, a.favPeople),
-			cmp.Compare(b.people, a.people),
+			cmpBool(a.isFavorite, b.isFavorite),
+			cmp.Compare(b.numFavPeople, a.numFavPeople),
+			cmp.Compare(b.numPeople, a.numPeople),
+			cmpBool(a.hasTags, b.hasTags),
 			cmp.Compare(a.random, b.random),
 		)
 	})
