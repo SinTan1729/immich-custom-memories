@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
@@ -69,4 +71,34 @@ func generateMemories(client *http.Client, allImages *map[int][]searchResult, co
 	}
 
 	return nil
+}
+
+func chooseImages(items *[]searchResult, n int) []searchResult {
+	if n <= 0 {
+		return nil
+	}
+
+	cmpBool := func(a, b bool) int {
+		if a == b {
+			return 0
+		}
+		if a {
+			return -1
+		}
+		return 1
+	}
+	// Favorite images first, then with more favorite people,
+	// then with more people, then with tags, then randomly break ties
+	slices.SortFunc(*items, func(a, b searchResult) int {
+		return cmp.Or(
+			cmpBool(a.IsFavorite, b.IsFavorite),
+			cmp.Compare(b.numFavPeople, a.numFavPeople),
+			cmp.Compare(b.numPeople, a.numPeople),
+			cmpBool(a.HasTags, b.HasTags),
+			cmp.Compare(a.sortSeed, b.sortSeed),
+		)
+	})
+
+	n = min(n, len(*items))
+	return (*items)[:n]
 }

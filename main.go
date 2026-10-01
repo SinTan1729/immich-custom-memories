@@ -33,7 +33,7 @@ func main() {
 	var configPath string
 	var dry_run bool
 	flag.StringVar(&configPath, "config", "", "Path for the config file.")
-	flag.BoolVar(&dry_run, "dry_run", false, "Do a dry run.")
+	flag.BoolVar(&dry_run, "dry-run", false, "Do a dry run.")
 	flag.Parse()
 	if dry_run {
 		fmt.Println("Doing a dry run...")

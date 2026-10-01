@@ -47,11 +47,12 @@ type searchResult struct {
 	Id            string    `json:"id"`
 	LocalDateTime time.Time `json:"localDateTime"`
 	People        []person  `json:"people"`
-	peopleIDs     []string  `json:""`
-	peopleNames   []string
+	numPeople     int
+	numFavPeople  int
 	HasMetadata   bool `json:"hasMetadata"`
 	IsFavorite    bool `json:"isFavorite"`
 	HasTags       bool
+	sortSeed      uint32
 }
 
 type personResponse struct {
@@ -102,13 +103,4 @@ type searchResponse struct {
 type tag struct {
 	Id    string `json:"id"`
 	Value string `json:"value"`
-}
-
-type rankedResult struct {
-	item         searchResult
-	isFavorite   bool
-	numFavPeople int
-	numPeople    int
-	hasTags      bool
-	random       uint64
 }

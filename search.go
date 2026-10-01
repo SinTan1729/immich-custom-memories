@@ -5,7 +5,6 @@ package main
 
 import (
 	"bytes"
-	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -82,10 +81,15 @@ func getYearImages(client *http.Client, config *config, date *date, personIds []
 				continue
 			}
 
+			item.numFavPeople = 0
+			item.numPeople = 0
 			for _, person := range item.People {
-				item.peopleIDs = append(item.peopleIDs, person.Id)
-				item.peopleNames = append(item.peopleIDs, person.Name)
+				item.numPeople += 1
+				if person.IsFavorite {
+					item.numFavPeople += 1
+				}
 			}
+			item.sortSeed = rand.Uint32()
 			validItems[i] = item
 		}
 
@@ -168,57 +172,4 @@ func getPersonIds(client *http.Client, config *config) ([]string, error) {
 
 	fmt.Println("Mapped people to IDs.")
 	return out, nil
-}
-
-func chooseImages(items *[]searchResult, n int) []searchResult {
-	if n <= 0 {
-		return nil
-	}
-
-	ranked := make([]rankedResult, len(*items))
-	for i, item := range *items {
-		favPeople := 0
-		for _, p := range item.People {
-			if p.IsFavorite {
-				favPeople++
-			}
-		}
-
-		ranked[i] = rankedResult{
-			item:         item,
-			isFavorite:   item.IsFavorite,
-			numFavPeople: favPeople,
-			numPeople:    len(item.peopleIDs),
-			hasTags:      item.HasTags,
-			random:       rand.Uint64(),
-		}
-	}
-
-	cmpBool := func(a, b bool) int {
-		if a == b {
-			return 0
-		}
-		if a {
-			return -1
-		}
-		return 1
-	}
-	// Favorite images first, then with more favorite people,
-	// then with more people, then with tags, then randomly break ties
-	slices.SortFunc(ranked, func(a, b rankedResult) int {
-		return cmp.Or(
-			cmpBool(a.isFavorite, b.isFavorite),
-			cmp.Compare(b.numFavPeople, a.numFavPeople),
-			cmp.Compare(b.numPeople, a.numPeople),
-			cmpBool(a.hasTags, b.hasTags),
-			cmp.Compare(a.random, b.random),
-		)
-	})
-
-	n = min(n, len(ranked))
-	result := make([]searchResult, n)
-	for i := range n {
-		result[i] = ranked[i].item
-	}
-	return result
 }
