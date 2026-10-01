@@ -49,7 +49,7 @@ You can also pass a config file using `--config <file-name>`. Using a local/inte
 Make sure that the API key used has at least the following permissions.
 
 ```
-[ memory.create, memory.read, memory.delete, asset.read ]
+[ memory.create, memory.read, memory.delete, asset.read, tag.read, person.read ]
 ```
 
 # Notes
