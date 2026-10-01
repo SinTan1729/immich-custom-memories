@@ -17,6 +17,30 @@ import (
 	"time"
 )
 
+func callRequest(client *http.Client, t string, config *config, path string, data io.Reader) ([]byte, error) {
+	req, err := http.NewRequest(t, config.ServerUrl+path, data)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-API-Key", config.APIKey)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.Contains([]int{200, 201, 204}, resp.StatusCode) {
+		return nil, errors.New(resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	return body, nil
+
+}
+
 func getYearImages(client *http.Client, config *config, date *date, personIds []string, tagIds []string) ([]searchResult, error) {
 	earliestZone, _ := time.LoadLocation("Etc/GMT-14")
 	lastZone, _ := time.LoadLocation("Etc/GMT+12")
@@ -41,27 +65,10 @@ func getYearImages(client *http.Client, config *config, date *date, personIds []
 	for true {
 		data.Cursor = cursor
 		jsonData, _ := json.Marshal(data)
-		req, err := http.NewRequest("POST", config.ServerUrl+"/api/search/metadata", bytes.NewBuffer(jsonData))
+		body, err := callRequest(client, "POST", config, "/api/search/metadata", bytes.NewBuffer(jsonData))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Error fetching images: %s\n", err)
 		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-API-Key", config.APIKey)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		if resp.StatusCode != 200 {
-			body, _ := io.ReadAll(resp.Body)
-			fmt.Println(string(body))
-			return nil, errors.New("Error fetching images: " + resp.Status)
-		}
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
 
 		var res searchResponse
 		if err = json.Unmarshal(body, &res); err != nil {
@@ -101,25 +108,10 @@ func getYearImages(client *http.Client, config *config, date *date, personIds []
 }
 
 func getTagIds(client *http.Client, config *config) ([]string, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tags", config.ServerUrl), nil)
+	body, err := callRequest(client, "GET", config, "/api/tags", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error fetching IDs for tags: %s", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-API-Key", config.APIKey)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Error fetching IDs for People: %s", resp.Status)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	var res []tag
 	if err = json.Unmarshal(body, &res); err != nil {
@@ -145,28 +137,13 @@ func getTagIds(client *http.Client, config *config) ([]string, error) {
 
 func getPersonIds(client *http.Client, config *config) ([]string, error) {
 	page := 1
-
 	var people []person
-	for true {
-		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/people?page=%d", config.ServerUrl, page), nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-API-Key", config.APIKey)
 
-		resp, err := client.Do(req)
+	for true {
+		body, err := callRequest(client, "GET", config, fmt.Sprintf("/api/people?page=%d", page), nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Error fetching IDs for people: %s", err)
 		}
-		if resp.StatusCode != 200 {
-			return nil, fmt.Errorf("Error fetching IDs for People: %s", resp.Status)
-		}
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		defer resp.Body.Close()
 
 		var res personResponse
 		if err = json.Unmarshal(body, &res); err != nil {
