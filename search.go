@@ -17,22 +17,91 @@ import (
 	"time"
 )
 
-func getYearImages(client *http.Client, config *config, date *date) ([]searchResult, error) {
+func getYearImages(client *http.Client, config *config, date *date, personIds []string, tagIds []string) ([]searchResult, error) {
 	earliestZone, _ := time.LoadLocation("Etc/GMT-14")
 	lastZone, _ := time.LoadLocation("Etc/GMT+12")
 	data := searchParams{
 		Filter: filter{
-			Type: typeFilter{Eq: "IMAGE"},
+			Type: eqFilterEnum{Eq: "IMAGE"},
 			TakenAt: dateFilter{
 				After:  time.Date(date.year, date.month, date.day, 0, 0, 0, 0, earliestZone),
 				Before: time.Date(date.year, date.month, date.day, 11, 59, 59, 999999999, lastZone),
 			},
+			ExcludePeople: noneFilter{None: personIds},
+			ExcludeTags:   noneFilter{None: tagIds},
+			IsOffline:     eqFilterBool{Eq: false},
+			Visibility:    eqFilterEnum{Eq: "timeline"},
 		},
 		WithPeople: true,
 		WithExif:   true,
 	}
-	jsonData, _ := json.Marshal(data)
-	req, err := http.NewRequest("POST", config.ServerUrl+"/api/search/metadata", bytes.NewBuffer(jsonData))
+
+	var cursor string
+	var images []searchResult
+	for true {
+		data.Cursor = cursor
+		jsonData, _ := json.Marshal(data)
+		req, err := http.NewRequest("POST", config.ServerUrl+"/api/search/metadata", bytes.NewBuffer(jsonData))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-API-Key", config.APIKey)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != 200 {
+			body, _ := io.ReadAll(resp.Body)
+			fmt.Println(string(body))
+			return nil, errors.New("Error fetching images: " + resp.Status)
+		}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+
+		var res searchResponse
+		if err = json.Unmarshal(body, &res); err != nil {
+			return nil, err
+		}
+
+		validItems := make([]searchResult, len(res.Assets.Items))
+		for i, item := range res.Assets.Items {
+			if !item.HasMetadata {
+				fmt.Println("Skipping bad item:", item.Id)
+				continue
+			}
+
+			for _, person := range item.People {
+				item.peopleIDs = append(item.peopleIDs, person.Id)
+				item.peopleNames = append(item.peopleIDs, person.Name)
+			}
+			validItems[i] = item
+		}
+
+		var filteredItems []searchResult
+		for _, item := range validItems {
+			if item.LocalDateTime.Day() == date.day {
+				filteredItems = append(filteredItems, item)
+			}
+		}
+
+		images = append(images, filteredItems...)
+		if res.NextCursor != "" {
+			cursor = res.NextCursor
+		} else {
+			break
+		}
+	}
+
+	return images, nil
+}
+
+func getTagIds(client *http.Client, config *config) ([]string, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/tags", config.ServerUrl), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +113,7 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, errors.New("Error fetching images: " + resp.Status)
+		return nil, fmt.Errorf("Error fetching IDs for People: %s", resp.Status)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -52,69 +121,38 @@ func getYearImages(client *http.Client, config *config, date *date) ([]searchRes
 	}
 	defer resp.Body.Close()
 
-	var res searchResponse
-	err = json.Unmarshal(body, &res)
-	if err != nil {
+	var res []tag
+	if err = json.Unmarshal(body, &res); err != nil {
 		return nil, err
 	}
 
-	validItems := make([]searchResult, len(res.Assets.Items))
-	for i, item := range res.Assets.Items {
-		isVisible := item.Visibility == "timeline"
-		if !item.HasMetadata || item.IsOffline || !isVisible {
-			fmt.Println("Skipping bad item:", item.Id)
-			continue
-		}
-
-		for _, person := range item.People {
-			item.peopleIDs = append(item.peopleIDs, person.Id)
-			item.peopleNames = append(item.peopleIDs, person.Name)
-		}
-		validItems[i] = item
-	}
-
-	var filteredItems []searchResult
-	for _, item := range validItems {
-		if item.LocalDateTime.Day() == date.day {
-			filteredItems = append(filteredItems, item)
-		}
-	}
-
-	return filteredItems, nil
-}
-
-func filterPeople(items *[]searchResult, config *config) []searchResult {
-	if len(config.ExcludedPeople) == 0 {
-		return *items
-	}
-	var filteredItems []searchResult
-	for _, item := range *items {
-		includeItem := true
-		for _, person := range config.ExcludedPeople {
-			if slices.Contains(item.peopleIDs, person) || slices.Contains(item.peopleNames, person) {
-				includeItem = false
+	var out []string
+	for _, in := range config.ExcludedTags {
+		for _, tag := range res {
+			if strings.Contains(tag.Value, in) {
+				out = append(out, tag.Id)
+			}
+			if tag.Id == in {
+				out = append(out, tag.Id)
 				break
 			}
 		}
-
-		if includeItem {
-			filteredItems = append(filteredItems, item)
-		}
 	}
 
-	return filteredItems
+	fmt.Println("Mapped tags to IDs.")
+	return out, nil
 }
 
-func filterTags(client *http.Client, items *[]searchResult, config *config) ([]searchResult, error) {
-	if len(config.ExcludedTags) == 0 {
-		return *items, nil
-	}
-	var filteredItems []searchResult
-	for _, item := range *items {
-		req, err := http.NewRequest("GET", config.ServerUrl+"/api/assets/"+item.Id, nil)
+func getPersonIds(client *http.Client, config *config) ([]string, error) {
+	page := 1
+
+	var people []person
+	for true {
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/people?page=%d", config.ServerUrl, page), nil)
 		if err != nil {
 			return nil, err
 		}
+		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-API-Key", config.APIKey)
 
 		resp, err := client.Do(req)
@@ -122,7 +160,7 @@ func filterTags(client *http.Client, items *[]searchResult, config *config) ([]s
 			return nil, err
 		}
 		if resp.StatusCode != 200 {
-			return nil, errors.New("Error fetching image info: " + item.Id + " : " + resp.Status)
+			return nil, fmt.Errorf("Error fetching IDs for People: %s", resp.Status)
 		}
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -130,32 +168,29 @@ func filterTags(client *http.Client, items *[]searchResult, config *config) ([]s
 		}
 		defer resp.Body.Close()
 
-		includeItem := true
-		var res tagResponse
-		err = json.Unmarshal(body, &res)
-		if err != nil {
+		var res personResponse
+		if err = json.Unmarshal(body, &res); err != nil {
 			return nil, err
 		}
-		item.HasTags = len(res.Tags) > 0
+		people = append(people, res.People...)
+		if !res.HasNextPage {
+			break
+		}
+		page += 1
+	}
 
-		for _, tag := range res.Tags {
-			filterFunc := func(excludedTag string) bool {
-				return tag.Value == excludedTag ||
-					strings.HasSuffix(tag.Value, "/"+excludedTag) ||
-					strings.HasPrefix(tag.Value, excludedTag+"/") ||
-					strings.Contains(tag.Value, "/"+excludedTag+"/")
-			}
-			if slices.ContainsFunc(config.ExcludedTags, filterFunc) {
-				includeItem = false
+	var out []string
+	for _, in := range config.ExcludedTags {
+		for _, p := range people {
+			if p.Name == in || p.Id == in {
+				out = append(out, p.Id)
 				break
 			}
 		}
-
-		if includeItem {
-			filteredItems = append(filteredItems, item)
-		}
 	}
-	return filteredItems, nil
+
+	fmt.Println("Mapped people to IDs.")
+	return out, nil
 }
 
 func chooseImages(items *[]searchResult, n int) []searchResult {

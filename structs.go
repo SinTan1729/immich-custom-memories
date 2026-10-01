@@ -51,9 +51,12 @@ type searchResult struct {
 	peopleNames   []string
 	HasMetadata   bool `json:"hasMetadata"`
 	IsFavorite    bool `json:"isFavorite"`
-	IsOffline     bool `json:"isOffline"`
 	HasTags       bool
-	Visibility    string `json:"visibility"`
+}
+
+type personResponse struct {
+	HasNextPage bool     `json:"hasNextPage"`
+	People      []person `json:"people"`
 }
 type person struct {
 	Id         string `json:"id"`
@@ -62,32 +65,42 @@ type person struct {
 }
 
 type searchParams struct {
+	Cursor     string `json:"cursor,omitempty"`
 	Filter     filter `json:"filter"`
 	WithPeople bool   `json:"withPeople"`
 	WithExif   bool   `json:"withExif"`
 }
 type filter struct {
-	Type    typeFilter `json:"type"`
-	TakenAt dateFilter `json:"takenAt"`
+	Type          eqFilterEnum `json:"type"`
+	Visibility    eqFilterEnum `json:"visibility"`
+	IsOffline     eqFilterBool `json:"isOffline"`
+	TakenAt       dateFilter   `json:"takenAt"`
+	ExcludeTags   noneFilter   `json:"tagIds"`
+	ExcludePeople noneFilter   `json:"personIds"`
 }
-type typeFilter struct {
+type eqFilterEnum struct {
 	Eq string `json:"eq"`
+}
+type eqFilterBool struct {
+	Eq bool `json:"eq"`
 }
 type dateFilter struct {
 	After  time.Time `json:"gte"`
 	Before time.Time `json:"lt"`
+}
+type noneFilter struct {
+	None []string `json:"none"`
 }
 
 type searchResponse struct {
 	Assets struct {
 		Items []searchResult `json:"items"`
 	} `json:"assets"`
+	NextCursor string `json:"nextCursor"`
 }
 
-type tagResponse struct {
-	Tags []tag `json:"tags"`
-}
 type tag struct {
+	Id    string `json:"id"`
 	Value string `json:"value"`
 }
 

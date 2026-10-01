@@ -31,8 +31,13 @@ func main() {
 	fmt.Println("----------")
 
 	var configPath string
+	var dry_run bool
 	flag.StringVar(&configPath, "config", "", "Path for the config file.")
+	flag.BoolVar(&dry_run, "dry_run", false, "Do a dry run.")
 	flag.Parse()
+	if dry_run {
+		fmt.Println("Doing a dry run...")
+	}
 	configPath = strings.TrimSpace(configPath)
 	if configPath == "" {
 		configDir, err := os.UserConfigDir()
@@ -68,25 +73,26 @@ func main() {
 	allImages := make(map[int][]searchResult)
 	totalMemories := 0
 
+	var tagIds, personIds []string
+	if tagIds, err = getTagIds(client, &config); err != nil {
+		log.Fatalln(err)
+	}
+	if personIds, err = getPersonIds(client, &config); err != nil {
+		log.Fatalln(err)
+	}
+
 	curYear := now.Year()
 	for year := curYear - 1; year >= curYear-config.NoOfYears; year-- {
 		fmt.Println("Processing year:", year)
 		date.year = year
-		yearImages, err := getYearImages(client, &config, &date)
+		images, err := getYearImages(client, &config, &date, personIds, tagIds)
 		if err != nil {
 			log.Fatalln(err)
 		}
-		fmt.Printf("  Got %d images for the date.\n", len(yearImages))
-		images := filterPeople(&yearImages, &config)
-		fmt.Printf("  After filtering by people, %d images remaining.\n", len(images))
-		images, err = filterTags(client, &images, &config)
-		fmt.Printf("  After filtering by tags, %d images remaining.\n", len(images))
+		fmt.Printf("  Got %d images for the date.\n", len(images))
 		if len(images) > config.MaxMemorySize {
-			fmt.Printf("  Choosing %d images randomly for the memory.\n", config.MaxMemorySize)
+			fmt.Printf("  Choosing %d images for the memory based on heuristics.\n", config.MaxMemorySize)
 			images = chooseImages(&images, config.MaxMemorySize)
-		}
-		if err != nil {
-			log.Fatalln(err)
 		}
 		if len(images) > 0 {
 			allImages[year] = images
@@ -95,8 +101,12 @@ func main() {
 	}
 
 	date.year = curYear
-	if err = generateMemories(client, &allImages, &config, &date); err != nil {
-		log.Fatalln(err)
+	if dry_run {
+		fmt.Printf("[Dry run] Will create %d memories.\n", totalMemories)
+	} else {
+		if err = generateMemories(client, &allImages, &config, &date); err != nil {
+			log.Fatalln(err)
+		}
+		fmt.Printf("Total created memories: %d\n", totalMemories)
 	}
-	fmt.Printf("Total created memories: %d\n", totalMemories)
 }
