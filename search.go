@@ -122,36 +122,36 @@ func getTagIds(client *http.Client, config *config) ([]string, error) {
 		return nil, err
 	}
 
-	var out []string
-	for _, in := range config.ExcludedTags {
+	var ids []string
+	for _, exc := range config.ExcludedTags {
 		for _, tag := range res {
-			if strings.Contains(tag.Value, in) {
-				out = append(out, tag.Id)
+			if strings.Contains(tag.Value, exc) {
+				ids = append(ids, tag.Id)
 			}
-			if tag.Id == in {
-				out = append(out, tag.Id)
+			if tag.Id == exc {
+				ids = append(ids, tag.Id)
 				break
 			}
 		}
 	}
 
 	fmt.Println("Mapped tags to IDs.")
-	return out, nil
+	return ids, nil
 }
 
-func getPersonIds(client *http.Client, config *config) ([]string, error) {
+func getPersonIds(client *http.Client, config *config) ([]string, []person, error) {
 	page := 1
 	var people []person
 
 	for true {
 		body, err := callRequest(client, "GET", config, fmt.Sprintf("/api/people?page=%d", page), nil)
 		if err != nil {
-			return nil, fmt.Errorf("Error fetching IDs for people: %s", err)
+			return nil, nil, fmt.Errorf("Error fetching IDs for people: %s", err)
 		}
 
 		var res personResponse
 		if err = json.Unmarshal(body, &res); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		people = append(people, res.People...)
 		if !res.HasNextPage {
@@ -160,16 +160,22 @@ func getPersonIds(client *http.Client, config *config) ([]string, error) {
 		page += 1
 	}
 
-	var out []string
-	for _, in := range config.ExcludedTags {
+	var ids []string
+	var birthdayPeople []person
+	now := time.Now()
+
+	for _, exc := range config.ExcludedPeople {
 		for _, p := range people {
-			if p.Name == in || p.Id == in {
-				out = append(out, p.Id)
+			if p.Name == exc || p.Id == exc {
+				ids = append(ids, p.Id)
 				break
+			} else if p.Birthday != nil && p.Birthday.day == now.Day() && p.Birthday.month == now.Month() {
+				fmt.Printf("Birthday found: %s\n", p.Name)
+				birthdayPeople = append(birthdayPeople, p)
 			}
 		}
 	}
 
 	fmt.Println("Mapped people to IDs.")
-	return out, nil
+	return ids, birthdayPeople, nil
 }

@@ -78,11 +78,19 @@ func main() {
 	totalMemories := 0
 
 	var tagIds, personIds []string
+	var birthdayPeople []person
 	if tagIds, err = getTagIds(client, &config); err != nil {
 		log.Fatalln(err)
 	}
-	if personIds, err = getPersonIds(client, &config); err != nil {
+	if personIds, birthdayPeople, err = getPersonIds(client, &config); err != nil {
 		log.Fatalln(err)
+	}
+
+	birthdayImages := make(map[string]*birthdayResults)
+	for _, person := range birthdayPeople {
+		fmt.Println(person)
+		item := birthdayResults{name: person.Name, images: nil}
+		birthdayImages[person.Id] = &item
 	}
 
 	curYear := now.Year()
@@ -94,9 +102,9 @@ func main() {
 			log.Fatalln(err)
 		}
 		fmt.Printf("  Got %d images for the date.\n", len(images))
-		if len(images) > config.MaxMemorySize {
-			fmt.Printf("  Choosing %d images for the memory based on heuristics.\n", config.MaxMemorySize)
-			images = chooseImages(&images, config.MaxMemorySize)
+		if len(images) > 0 {
+			fmt.Printf("  Choosing up to %d images for the memory based on heuristics.\n", config.MaxMemorySize)
+			images = chooseImages(&images, birthdayImages, config.MaxMemorySize)
 		}
 		if len(images) > 0 {
 			allImages[year] = images
@@ -107,8 +115,13 @@ func main() {
 	date.year = curYear
 	if dry_run {
 		fmt.Printf("[Dry run] Will create %d memories.\n", totalMemories)
+		for _, val := range birthdayImages {
+			if len(val.images) > 0 {
+				fmt.Printf("[Dry run] Will create birthday memory for %s.\n", val.name)
+			}
+		}
 	} else {
-		if err = generateMemories(client, &allImages, &config, &date); err != nil {
+		if err = generateMemories(client, allImages, birthdayImages, &config, &date); err != nil {
 			log.Fatalln(err)
 		}
 		fmt.Printf("Total created memories: %d\n", totalMemories)

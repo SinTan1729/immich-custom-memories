@@ -34,7 +34,7 @@ func cleanUpMemories(client *http.Client, config *config) error {
 	return nil
 }
 
-func generateMemories(client *http.Client, allImages *map[int][]searchResult, config *config, date *date) error {
+func generateMemories(client *http.Client, allImages map[int][]searchResult, birthdayImages map[string]*birthdayResults, config *config, date *date) error {
 	err := cleanUpMemories(client, config)
 	if err != nil {
 		return err
@@ -44,8 +44,12 @@ func generateMemories(client *http.Client, allImages *map[int][]searchResult, co
 	hideAt := time.Date(date.year, date.month, date.day, 23, 59, 59, 999999999, time.UTC).Format(time.RFC3339Nano)
 
 	fmt.Println("----------\nAdding new memories.")
-	for year, images := range *allImages {
+	for year, images := range allImages {
 		assets := make([]string, len(images))
+		if len(images) == 0 {
+			continue
+		}
+
 		for i, image := range images {
 			assets[i] = image.Id
 		}
@@ -70,10 +74,41 @@ func generateMemories(client *http.Client, allImages *map[int][]searchResult, co
 		}
 	}
 
+	for id, val := range birthdayImages {
+		images := val.images
+		if len(images) == 0 {
+			continue
+		}
+
+		assets := make([]string, len(images))
+		for i, image := range images {
+			assets[i] = image.Id
+		}
+		data := memoryEntry{
+			AssetIDs: assets,
+			Data:     memoryEntryData{Id: &id, Name: &val.name, Year: date.year},
+			MemoryAt: time.Date(date.year, date.month, date.day, 0, 0, 0, 0, time.UTC).Format(time.RFC3339),
+			ShowAt:   showAt,
+			HideAt:   hideAt,
+			Type:     "birthday",
+		}
+		jsonData, _ := json.Marshal(data)
+
+		_, err := callRequest(client, "POST", config, "/api/memories", bytes.NewBuffer(jsonData))
+		if err != nil {
+			return fmt.Errorf("Error creating birthday memories for %s: %s", val.name, err)
+		}
+		if len(images) == 1 {
+			fmt.Printf("  Created birthday memory for %s with 1 entry.\n", val.name)
+		} else {
+			fmt.Printf("  Created birthday memory for %s with %d entries.\n", val.name, len(images))
+		}
+	}
+
 	return nil
 }
 
-func chooseImages(items *[]searchResult, n int) []searchResult {
+func chooseImages(items *[]searchResult, birthdayImages map[string]*birthdayResults, n int) []searchResult {
 	if n <= 0 {
 		return nil
 	}
@@ -89,7 +124,7 @@ func chooseImages(items *[]searchResult, n int) []searchResult {
 	}
 	// Favorite images first, then with more favorite people,
 	// then with more people, then with tags, then randomly break ties
-	slices.SortFunc(*items, func(a, b searchResult) int {
+	cmpFunc := func(a, b searchResult) int {
 		return cmp.Or(
 			cmpBool(a.IsFavorite, b.IsFavorite),
 			cmp.Compare(b.numFavPeople, a.numFavPeople),
@@ -97,7 +132,23 @@ func chooseImages(items *[]searchResult, n int) []searchResult {
 			cmpBool(a.HasTags, b.HasTags),
 			cmp.Compare(a.sortSeed, b.sortSeed),
 		)
-	})
+	}
+
+	slices.SortFunc(*items, cmpFunc)
+
+	for _, item := range *items {
+		for _, person := range item.People {
+			array, hasBirthday := birthdayImages[person.Id]
+			if hasBirthday {
+				birthdayImages[person.Id].images = append(array.images, item)
+			}
+		}
+	}
+	for p, val := range birthdayImages {
+		slices.SortFunc(val.images, cmpFunc)
+		m := min(n, len(val.images))
+		(birthdayImages[p]).images = (val.images)[:m]
+	}
 
 	n = min(n, len(*items))
 	return (*items)[:n]

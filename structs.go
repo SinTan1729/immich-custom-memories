@@ -4,6 +4,7 @@
 package main
 
 import "time"
+import "encoding/json"
 
 // Base
 
@@ -22,6 +23,19 @@ type date struct {
 	day   int
 }
 
+func (d *date) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return err
+	}
+	d.year, d.month, d.day = t.Date()
+	return nil
+}
+
 // Memories
 
 type memoryEntry struct {
@@ -34,7 +48,9 @@ type memoryEntry struct {
 }
 
 type memoryEntryData struct {
-	Year int `json:"year"`
+	Id   *string `json:"personId,omitempty"`
+	Name *string `json:"personName,omitempty"`
+	Year int     `json:"year"`
 }
 
 type memory struct {
@@ -63,6 +79,7 @@ type person struct {
 	Id         string `json:"id"`
 	Name       string `json:"name"`
 	IsFavorite bool   `json:"isFavorite"`
+	Birthday   *date  `json:"birthDate"`
 }
 
 type searchParams struct {
@@ -103,4 +120,9 @@ type searchResponse struct {
 type tag struct {
 	Id    string `json:"id"`
 	Value string `json:"value"`
+}
+
+type birthdayResults struct {
+	name   string
+	images []searchResult
 }
